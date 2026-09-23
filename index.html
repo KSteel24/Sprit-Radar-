@@ -62,7 +62,7 @@
         <div class="glass-card rounded-2xl p-3 flex items-center justify-between">
             <div class="flex items-center space-x-2">
                 <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span class="text-xs uppercase tracking-wider font-semibold text-emerald-400">Bester Live-Preis</span>
+                <span id="locationBadge" class="text-xs uppercase tracking-wider font-semibold text-emerald-400 truncate max-w-[200px]">Standort: GPS</span>
             </div>
             <div id="topPriceBadge" class="text-lg font-bold text-emerald-400">--- €</div>
         </div>
@@ -78,7 +78,7 @@
                         <h1 class="text-xl font-bold tracking-tight">Sprit-Radar</h1>
                         <span class="text-[10px] font-extrabold bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/30">PRO</span>
                     </div>
-                    <p class="text-xs text-gray-400">iOS 27 Spatial UI · GPS Ortung</p>
+                    <p class="text-xs text-gray-400">iOS 27 Spatial UI · Adress- & GPS-Suche</p>
                 </div>
             </div>
             <button onclick="toggleSettingsModal()" class="w-10 h-10 glass-btn rounded-full flex items-center justify-center text-gray-300 hover:text-white transition">
@@ -86,24 +86,38 @@
             </button>
         </div>
 
-        <!-- Fuel Type Selector Tab -->
-        <div class="glass-card rounded-2xl p-1.5 flex justify-between space-x-1">
-            <button onclick="selectFuelType('e5')" id="btn-e5" class="fuel-btn flex-1 py-2.5 rounded-xl font-medium text-xs text-center transition glass-btn-active">
-                Super E5<br><span id="tab-price-e5" class="text-[10px] opacity-75">--- €</span>
+        <!-- Location & Address Search Bar -->
+        <div class="flex space-x-2">
+            <div class="glass-card rounded-xl px-3 py-2 flex items-center flex-1">
+                <i data-lucide="map-pin" class="w-4 h-4 text-blue-400 mr-2 flex-shrink-0"></i>
+                <input type="text" id="citySearchInput" placeholder="Straße, PLZ oder Ort eingeben..." class="bg-transparent border-none text-xs text-white focus:outline-none w-full placeholder-gray-500" onkeypress="if(event.key === 'Enter') searchLocation()">
+            </div>
+            <button onclick="searchLocation()" class="glass-card rounded-xl px-3 py-2 flex items-center text-xs text-blue-400 font-medium space-x-1 hover:bg-white/10 transition">
+                <span>Suchen</span>
             </button>
-            <button onclick="selectFuelType('e10')" id="btn-e10" class="fuel-btn flex-1 py-2.5 rounded-xl font-medium text-xs text-center transition text-gray-400">
-                Super E10<br><span id="tab-price-e10" class="text-[10px] opacity-75">--- €</span>
-            </button>
-            <button onclick="selectFuelType('diesel')" id="btn-diesel" class="fuel-btn flex-1 py-2.5 rounded-xl font-medium text-xs text-center transition text-gray-400">
-                Diesel<br><span id="tab-price-diesel" class="text-[10px] opacity-75">--- €</span>
+            <button onclick="useGPS()" class="glass-card rounded-xl px-3 py-2 flex items-center text-xs text-gray-300 hover:text-white transition" title="GPS verwenden">
+                <i data-lucide="locate" class="w-4 h-4"></i>
             </button>
         </div>
 
-        <!-- Search Bar & Sorting -->
+        <!-- Fuel Type Selector Tab -->
+        <div class="glass-card rounded-2xl p-1.5 flex justify-between space-x-1">
+            <button onclick="selectFuelType('e5')" id="btn-e5" class="fuel-btn flex-1 py-2.5 rounded-xl font-medium text-xs text-center transition glass-btn-active">
+                Super E5
+            </button>
+            <button onclick="selectFuelType('e10')" id="btn-e10" class="fuel-btn flex-1 py-2.5 rounded-xl font-medium text-xs text-center transition text-gray-400">
+                Super E10
+            </button>
+            <button onclick="selectFuelType('diesel')" id="btn-diesel" class="fuel-btn flex-1 py-2.5 rounded-xl font-medium text-xs text-center transition text-gray-400">
+                Diesel
+            </button>
+        </div>
+
+        <!-- Filter Bar -->
         <div class="flex space-x-2">
             <div class="glass-card rounded-xl px-3 py-2 flex items-center flex-1">
                 <i data-lucide="search" class="w-4 h-4 text-gray-400 mr-2"></i>
-                <input type="text" id="searchInput" oninput="renderStations()" placeholder="Marke oder Straße suchen..." class="bg-transparent border-none text-xs text-white focus:outline-none w-full placeholder-gray-500">
+                <input type="text" id="searchInput" oninput="renderStations()" placeholder="Ergebnisse nach Marke filtern..." class="bg-transparent border-none text-xs text-white focus:outline-none w-full placeholder-gray-500">
             </div>
             <button onclick="toggleSort()" class="glass-card rounded-xl px-3 py-2 flex items-center text-xs text-gray-300 space-x-1">
                 <span id="sortLabel">Preis</span>
@@ -113,10 +127,9 @@
 
         <!-- Station List Container -->
         <div id="stationList" class="space-y-3 pt-1">
-            <!-- Loading State -->
             <div id="loadingState" class="glass-card rounded-2xl p-8 text-center space-y-3">
                 <div class="inline-block animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
-                <p class="text-xs text-gray-400">Lade Spritpreise...</p>
+                <p class="text-xs text-gray-400">Lade Daten...</p>
             </div>
         </div>
 
@@ -127,7 +140,7 @@
         <div class="glass-card w-full max-w-md rounded-3xl p-6 space-y-5 border border-white/20">
             <div class="flex justify-between items-center">
                 <h3 class="text-lg font-bold">Einstellungen</h3>
-                <button onclick="toggleSettingsModal()" class="text-gray-400 hover:text-white">
+                <button onclick="toggleSettingsModal(false)" class="text-gray-400 hover:text-white">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -155,14 +168,13 @@
     </div>
 
     <script>
-        // Global App State
         let currentFuelType = 'e5';
-        let sortBy = 'price'; // 'price' or 'dist'
+        let sortBy = 'price';
         let stationsData = [];
-        let userLat = 52.520008; // Default Berlin Demo
+        let userLat = 52.520008;
         let userLng = 13.404954;
+        let currentCityName = 'Berlin (Demo)';
 
-        // Demo Fallback Data
         const demoStations = [
             { id: '1', name: 'Aral', brand: 'ARAL', street: 'Hauptstraße 12', houseNumber: '', postCode: 10115, place: 'Berlin', dist: 0.8, price: 1.729, e5: 1.729, e10: 1.669, diesel: 1.619, isOpen: true },
             { id: '2', name: 'Shell', brand: 'SHELL', street: 'Berliner Str. 45', houseNumber: '', postCode: 10117, place: 'Berlin', dist: 1.4, price: 1.749, e5: 1.749, e10: 1.689, diesel: 1.639, isOpen: true },
@@ -173,26 +185,62 @@
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             loadSettings();
-            initApp();
+            useGPS();
         });
 
-        function initApp() {
-            const apiKey = localStorage.getItem('tankkoenig_apikey');
+        function useGPS() {
+            document.getElementById('locationBadge').innerText = 'Ortung läuft...';
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (pos) => {
                         userLat = pos.coords.latitude;
                         userLng = pos.coords.longitude;
-                        if (apiKey) { fetchLivePrices(apiKey); } else { loadDemoData(); }
+                        currentCityName = 'GPS Standort';
+                        document.getElementById('locationBadge').innerText = currentCityName;
+                        initFetch();
                     },
                     (err) => {
-                        console.warn('GPS Zugriff verweigert oder Fehler:', err);
-                        if (apiKey) { fetchLivePrices(apiKey); } else { loadDemoData(); }
+                        document.getElementById('locationBadge').innerText = 'GPS nicht verfügbar';
+                        initFetch();
                     },
-                    { timeout: 7000 }
+                    { timeout: 5000 }
                 );
             } else {
-                if (apiKey) { fetchLivePrices(apiKey); } else { loadDemoData(); }
+                initFetch();
+            }
+        }
+
+        async function searchLocation() {
+            const query = document.getElementById('citySearchInput').value.trim();
+            if (!query) return;
+
+            document.getElementById('locationBadge').innerText = 'Suche Adresse...';
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,at,ch&limit=1`);
+                const data = await res.json();
+                
+                if (data && data.length > 0) {
+                    userLat = parseFloat(data[0].lat);
+                    userLng = parseFloat(data[0].lon);
+                    const parts = data[0].display_name.split(',');
+                    currentCityName = parts[0] + (parts[1] ? ', ' + parts[1] : '');
+                    document.getElementById('locationBadge').innerText = currentCityName;
+                    initFetch();
+                } else {
+                    alert('Adresse/Ort nicht gefunden. Bitte prüfe die Eingabe.');
+                    document.getElementById('locationBadge').innerText = currentCityName;
+                }
+            } catch (err) {
+                alert('Fehler bei der Ortssuche.');
+            }
+        }
+
+        function initFetch() {
+            const apiKey = localStorage.getItem('tankkoenig_apikey');
+            if (apiKey) {
+                fetchLivePrices(apiKey);
+            } else {
+                loadDemoData();
             }
         }
 
@@ -207,11 +255,10 @@
                     stationsData = data.stations;
                     renderStations();
                 } else {
-                    alert('API-Fehler: ' + (data.message || 'Schlüssel ungültig. Lade Demo-Daten.'));
+                    alert('Tankkönig API-Fehler: ' + (data.message || 'Key prüfen!'));
                     loadDemoData();
                 }
             } catch (err) {
-                console.error('Fetch error:', err);
                 loadDemoData();
             }
         }
@@ -226,7 +273,6 @@
             const listEl = document.getElementById('stationList');
             const searchVal = document.getElementById('searchInput').value.toLowerCase();
             
-            // Filter and Sort
             let filtered = stationsData.filter(s => {
                 const nameMatch = (s.brand || s.name || '').toLowerCase().includes(searchVal);
                 const streetMatch = (s.street || '').toLowerCase().includes(searchVal);
@@ -241,7 +287,6 @@
                 }
             });
 
-            // Update Tab Mini Prices
             if (filtered.length > 0) {
                 const cheapest = [...filtered].sort((a,b) => (a[currentFuelType] || 99) - (b[currentFuelType] || 99))[0];
                 document.getElementById('topPriceBadge').innerText = cheapest[currentFuelType] ? cheapest[currentFuelType].toFixed(3) + ' €' : '--- €';
@@ -250,7 +295,7 @@
             if (filtered.length === 0) {
                 listEl.innerHTML = `
                     <div class="glass-card rounded-2xl p-8 text-center text-gray-400 text-xs">
-                        Keine Tankstellen in der Nähe gefunden.
+                        Keine Tankstellen für diesen Bereich gefunden.
                     </div>`;
                 return;
             }
@@ -322,7 +367,7 @@
             localStorage.setItem('tankkoenig_radius', rad);
             
             toggleSettingsModal(false);
-            initApp();
+            initFetch();
         }
 
         function loadSettings() {
