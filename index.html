@@ -58,7 +58,6 @@
             box-shadow: 0 0 20px rgba(0, 122, 255, 0.6);
             border: 1px solid rgba(255, 255, 255, 0.4);
         }
-        /* Dynamic Island Smooth Animations */
         .dynamic-island {
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -68,11 +67,11 @@
 
     <div class="w-full max-w-md space-y-4">
         
-        <!-- Virtual Dynamic Island (Simulated Spatial Element) -->
+        <!-- Dynamic Island Element -->
         <div id="dynamicIsland" class="dynamic-island mx-auto bg-black/90 border border-white/20 rounded-[28px] p-2.5 px-4 flex items-center justify-between shadow-2xl backdrop-blur-xl w-[92%]">
             <div class="flex items-center space-x-2.5 overflow-hidden">
                 <span id="islandStatusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span>
-                <span id="islandTitle" class="text-xs font-semibold tracking-wide text-gray-200 truncate">Sprit-Radar Radar Bereit</span>
+                <span id="islandTitle" class="text-xs font-semibold tracking-wide text-gray-200 truncate">Sprit-Radar Bereit</span>
             </div>
             <div class="flex items-center space-x-2">
                 <span id="islandPrice" class="text-xs font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">--- €</span>
@@ -210,8 +209,8 @@
         function updateDynamicIsland(text, price) {
             const islandTitle = document.getElementById('islandTitle');
             const islandPrice = document.getElementById('islandPrice');
-            islandTitle.innerText = text;
-            if (price) islandPrice.innerText = price;
+            if (islandTitle) islandTitle.innerText = text;
+            if (islandPrice && price) islandPrice.innerText = price;
         }
 
         function useGPS() {
@@ -226,7 +225,7 @@
                         initFetch();
                     },
                     (err) => {
-                        document.getElementById('locationSubtext').innerText = 'GPS nicht verfügbar';
+                        document.getElementById('locationSubtext').innerText = 'GPS inaktiv · Lade Daten';
                         initFetch();
                     },
                     { timeout: 5000 }
@@ -281,7 +280,7 @@
                     stationsData = data.stations;
                     renderStations();
                 } else {
-                    alert('Tankkönig API-Fehler: Schlüssel prüfen!');
+                    alert('Tankkönig API-Fehler: Bitte Schlüssel prüfen!');
                     loadDemoData();
                 }
             } catch (err) {
@@ -412,7 +411,7 @@
             const cheapest = [...stationsData].sort((a,b) => (a[currentFuelType] || 99) - (b[currentFuelType] || 99))[0];
             const text = `${cheapest.brand}: ${cheapest[currentFuelType].toFixed(3)}€ (${cheapest.dist.toFixed(1)}km)`;
             navigator.clipboard.writeText(text);
-            alert('Widget-Daten in Zwischenablage kopiert:\n' + text);
+            alert('Widget-Daten kopiert:\n' + text);
         }
     </script>
 </body>
