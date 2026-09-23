@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="de" class="dark h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Sprit-Radar Pro | iOS 27 Spatial Edition</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', 'Inter', 'sans-serif'],
+                        mono: ['"SF Mono"', 'ui-monospace', 'monospace']
+                    },
+                    colors: {
+                        ios: {
+                            bg: '#000000',
+                            card: 'rgba(255, 255, 255, 0.07)',
+                            cardBorder: 'rgba(255, 255, 255, 0.15)',
+                            glass: 'rgba(20, 20, 25, 0.65)',
+                            blue: '#0A84FF',
+                            green: '#30D158',
+                            red: '#FF453A',
+                            yellow: '#FFD60A',
+                            orange: '#FF9F0A',
+                            purple: '#BF5AF2'
+                        }
+                    },
+                    backdropBlur: {
+                        '3xl': '40px',
+                        'spatial': '25px'
+                    },
+                    boxShadow: {
+                        'glow-blue': '0 0 25px -5px rgba(10, 132, 255, 0.4)',
+                        'glow-green': '0 0 25px -5px rgba(48, 209, 88, 0.4)',
+                        'glow-red': '0 0 25px -5px rgba(255, 69, 58, 0.4)',
+                        'spatial-card': '0 20px 40px -15px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.25)'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* iOS Touch & Safe Area Behavior */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        body {
+            background-color: #000000;
+            overflow-x: hidden;
+            font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+        }
+
+        /* Fluid Ambient Mesh Background Gradient */
+        .ambient-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background: 
+                radial-gradient(circle at 20% 15%, rgba(10, 132, 255, 0.18) 0%, transparent 40%),
+                radial-gradient(circle at 80% 60%, rgba(191, 90, 242, 0.15) 0%, transparent 45%),
+                radial-gradient(circle at 50% 85%, rgba(48, 209, 88, 0.12) 0%, transparent 40%);
+            filter: blur(60px);
+            pointer-events: none;
+        }
+
+        /* iOS 27 Liquid Glassmorphism Panels */
+        .liquid-glass {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(30px) saturate(190%);
+            -webkit-backdrop-filter: blur(30px) saturate(190%);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.5), inset 0 1px 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .liquid-glass-interactive {
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        
+        .liquid-glass-interactive:active {
+            transform: scale(0.97);
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        /* Pulsing Glow Animation */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 0.3; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .pulse-live {
+            animation: pulse-ring 2.5s infinite ease-in-out;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 0px; height: 0px; }
+    </style>
+</head>
+<body class="h-full text-white antialiased font-sans flex flex-col justify-between selection:bg-blue-500/30">
+
+    <!-- Ambient Mesh Gradient Background -->
+    <div class="ambient-bg"></div>
+
+    <div class="relative z-10 flex flex-col min-h-screen pb-10">
+
+        <!-- iOS 27 Top Header with Dynamic Island -->
+        <header class="sticky top-0 z-40 px-4 pt-3 pb-2 backdrop-blur-xl bg-black/40 border-b border-white/10">
+            
+            <!-- Dynamic Island Container -->
+            <div id="dynamic-island" class="mx-auto max-w-sm bg-black/80 border border-white/20 rounded-full px-4 py-2.5 shadow-2xl flex items-center justify-between transition-all duration-500 transform hover:scale-105 cursor-pointer" onclick="scrollToBestStation()">
+                
+                <div class="flex items-center space-x-2.5">
+                    <div class="relative flex h-3 w-3">
+                        <span class="pulse-live absolute inline-flex h-full w-full rounded-full bg-emerald-400"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </div>
+                    <div>
+                        <div class="text-[10px] uppercase font-bold tracking-widest text-emerald-400">BESTER LIVE-PREIS</div>
+                        <div id="island-text" class="text-xs font-semibold text-white/90">Lade Tankkönig Daten...</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <span id="island-price" class="text-sm font-black font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                        --,- €
+                    </span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-white/40"></i>
+                </div>
+            </div>
+
+            <!-- Header Title Bar -->
+            <div class="max-w-2xl mx-auto flex items-center justify-between mt-3 px-1">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-emerald-400 p-0.5 shadow-glow-blue flex items-center justify-center">
+                        <div class="w-full h-full bg-black/40 rounded-[14px] flex items-center justify-center backdrop-blur-md">
+                            <i data-lucide="fuel" class="w-5 h-5 text-blue-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+                            Sprit-Radar <span class="text-blue-500 text-xs tracking-widest px-1.5 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/30 ml-1">PRO</span>
+                        </h1>
+                        <p class="text-[10px] text-white/50 font-medium flex items-center gap-1">
+                            <span>iOS 27 Spatial UI</span> • <span id="location-badge" class="text-blue-400">GPS Ortung</span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex items-center space-x-2">
+                    <button onclick="fetchTankkoenigData()" class="p-2.5 rounded-2xl liquid-glass liquid-glass-interactive text-white/80 hover:text-white" title="Aktualisieren">
+                        <i data-lucide="refresh-cw" id="refresh-icon" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="openSettingsModal()" class="p-2.5 rounded-2xl liquid-glass liquid-glass-interactive text-white/80 hover:text-white" title="Einstellungen & Key">
+                        <i data-lucide="sliders" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="max-w-2xl mx-auto px-4 pt-5 w-full space-y-4 flex-1">
+
+            <!-- Fuel Type Segmented Switcher (iOS Style) -->
+            <div class="p-1.5 liquid-glass rounded-2xl grid grid-cols-3 gap-1 shadow-spatial-card">
+                <button onclick="setFuelType('e5')" id="btn-fuel-e5" class="fuel-btn py-2.5 rounded-xl font-bold text-xs transition-all flex flex-col items-center bg-blue-600 text-white shadow-glow-blue">
+                    <span>Super E5</span>
+                    <span id="avg-e5" class="text-[10px] font-mono opacity-80 font-normal">--,- €</span>
+                </button>
+                <button onclick="setFuelType('e10')" id="btn-fuel-e10" class="fuel-btn py-2.5 rounded-xl font-bold text-xs transition-all flex flex-col items-center text-white/60 hover:text-white hover:bg-white/5">
+                    <span>Super E10</span>
+                    <span id="avg-e10" class="text-[10px] font-mono opacity-80 font-normal">--,- €</span>
+                </button>
+                <button onclick="setFuelType('diesel')" id="btn-fuel-diesel" class="fuel-btn py-2.5 rounded-xl font-bold text-xs transition-all flex flex-col items-center text-white/60 hover:text-white hover:bg-white/5">
+                    <span>Diesel</span>
+                    <span id="avg-diesel" class="text-[10px] font-mono opacity-80 font-normal">--,- €</span>
+                </button>
+            </div>
+
+            <!-- Search Bar & Filters -->
+            <div class="flex items-center space-x-2">
+                <div class="relative flex-1">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40"></i>
+                    <input type="text" id="search-input" oninput="renderStations()" placeholder="Marke oder Straße suchen..." 
+                           class="w-full pl-10 pr-4 py-2.5 liquid-glass rounded-2xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-blue-500/80 transition">
+                </div>
+
+                <!-- Sort Toggle -->
+                <button onclick="toggleSort()" id="sort-btn" class="px-3.5 py-2.5 liquid-glass rounded-2xl text-xs font-semibold text-white/80 flex items-center space-x-1.5 hover:text-white">
+                    <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-blue-400"></i>
+                    <span id="sort-label">Preis</span>
+                </button>
+
+                <!-- Favorites Filter -->
+                <button onclick="toggleFavFilter()" id="fav-filter-btn" class="p-2.5 liquid-glass rounded-2xl text-white/50 hover:text-rose-400 transition">
+                    <i data-lucide="heart" id="fav-filter-icon" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Station Cards List -->
+            <div id="stations-list" class="space-y-3.5 pt-1">
+                <!-- Station Cards injected via Javascript -->
+            </div>
+
+            <!-- Empty / Loading State -->
+            <div id="loading-state" class="py-16 text-center space-y-3">
+                <div class="w-12 h-12 rounded-full border-2 border-blue-500/20 border-t-blue-500 animate-spin mx-auto"></div>
+                <p class="text-xs text-white/50">Lade aktuelle Spritpreise von Tankkönig...</p>
+            </div>
+
+            <div id="empty-state" class="hidden py-16 text-center space-y-2">
+                <i data-lucide="map-pin-off" class="w-10 h-10 text-white/20 mx-auto"></i>
+                <h3 class="text-sm font-bold text-white/80">Keine Tankstellen gefunden</h3>
+                <p class="text-xs text-white/40 max-w-xs mx-auto">Prüfe deinen API-Key in den Einstellungen oder ändere deinen Suchfilter.</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Interactive Detail Modal -->
+    <div id="detail-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-2xl opacity-0 pointer-events-none transition-all duration-300 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="w-full max-w-lg bg-zinc-950/90 border border-white/15 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl space-y-5 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 max-h-[90vh] overflow-y-auto" id="modal-container">
+            
+            <!-- Modal Header -->
+            <div class="flex items-start justify-between border-b border-white/10 pb-4">
+                <div class="flex items-center space-x-3">
+                    <div id="modal-brand-badge" class="w-11 h-11 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-lg font-black text-blue-400">
+                        A
+                    </div>
+                    <div>
+                        <h2 id="modal-title" class="text-base font-bold text-white">--</h2>
+                        <p id="modal-subtitle" class="text-xs text-white/50 flex items-center gap-1 mt-0.5">
+                            <i data-lucide="map-pin" class="w-3 h-3 text-blue-400"></i> <span>--</span>
+                        </p>
+                    </div>
+                </div>
+                <button onclick="closeModal()" class="p-2 rounded-full bg-white/10 text-white/60 hover:text-white">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Price Grid Matrix -->
+            <div class="grid grid-cols-3 gap-2">
+                <div class="liquid-glass p-3 rounded-2xl text-center">
+                    <span class="text-[10px] text-white/40 uppercase font-bold block">Super E5</span>
+                    <span id="modal-e5" class="text-base font-mono font-black text-white mt-1 block">--,- €</span>
+                </div>
+                <div class="liquid-glass p-3 rounded-2xl text-center">
+                    <span class="text-[10px] text-white/40 uppercase font-bold block">Super E10</span>
+                    <span id="modal-e10" class="text-base font-mono font-black text-white mt-1 block">--,- €</span>
+                </div>
+                <div class="liquid-glass p-3 rounded-2xl text-center">
+                    <span class="text-[10px] text-white/40 uppercase font-bold block">Diesel</span>
+                    <span id="modal-diesel" class="text-base font-mono font-black text-white mt-1 block">--,- €</span>
+                </div>
+            </div>
+
+            <!-- Price Trend Chart -->
+            <div class="liquid-glass p-4 rounded-2xl space-y-2">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="font-bold text-white/70 uppercase text-[10px] tracking-wider">24h Preisprognose Trend</span>
+                    <span class="text-emerald-400 font-medium text-[11px]">Empfehlung: Tanken</span>
+                </div>
+                <div class="h-28">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="grid grid-cols-2 gap-3 pt-1">
+                <a id="nav-apple-btn" href="#" target="_blank" class="py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl text-xs flex items-center justify-center space-x-2 shadow-glow-blue transition">
+                    <i data-lucide="navigation" class="w-4 h-4"></i>
+                    <span>Apple Maps</span>
+                </a>
+                <a id="nav-google-btn" href="#" target="_blank" class="py-3 px-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-xs flex items-center justify-center space-x-2 transition">
+                    <i data-lucide="map" class="w-4 h-4 text-emerald-400"></i>
+                    <span>Google Maps</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings & API Modal -->
+    <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-2xl opacity-0 pointer-events-none transition-all duration-300 flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-zinc-950/95 border border-white/15 rounded-3xl p-6 shadow-2xl space-y-5">
+            
+            <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="sliders" class="w-5 h-5 text-blue-400"></i>
+                    <h3 class="font-bold text-white text-base">Einstellungen & API</h3>
+                </div>
+                <button onclick="closeSettingsModal()" class="p-2 rounded-full bg-white/10 text-white/60 hover:text-white">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Tankkönig Key Input -->
+            <div class="space-y-2">
+                <label class="text-xs font-semibold text-white/70 block">Tankkönig API-Schlüssel</label>
+                <input type="text" id="api-key-input" placeholder="z. B. 00000000-0000-0000-0000-000000000002" 
+                       class="w-full px-3.5 py-2.5 bg-black/60 border border-white/20 rounded-2xl text-xs font-mono text-white focus:outline-none focus:border-blue-500">
+                <p class="text-[10px] text-white/40">Kostenlos abrufbar unter <i>creativecommons.tankerkoenig.de</i></p>
+            </div>
+
+            <!-- Shortcut Installation Info -->
+            <div class="liquid-glass p-4 rounded-2xl space-y-2 text-xs text-white/70">
+                <h4 class="font-bold text-white flex items-center gap-1.5 text-xs">
+                    <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+                    <span>iOS Kurzbefehl Einrichten</span>
+                </h4>
+                <ol class="list-decimal list-inside space-y-1 text-[11px] text-white/60">
+                    <li>Diese HTML-Datei in der <b>Dateien-App</b> speichern.</li>
+                    <li>Kurzbefehle-App öffnen -> Aktion <b>"Datei"</b> wählen.</li>
+                    <li>Aktion <b>"Safari > Webansicht anzeigen"</b> anhängen.</li>
+                </ol>
+            </div>
+
+            <button onclick="saveApiKey()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl text-xs transition shadow-glow-blue">
+                Einstellungen Speichern
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Demo Fallback Data in case no API Key is provided or GPS fails
+        const DEMO_STATIONS = [
+            { id: '1', name: 'JET Tankstelle', brand: 'JET', street: 'Wasserburger Landstr. 12', dist: 1.1, isOpen: true, e5: 1.719, e10: 1.659, diesel: 1.589 },
+            { id: '2', name: 'Aral Station', brand: 'Aral', street: 'Hauptstraße 142', dist: 2.3, isOpen: true, e5: 1.759, e10: 1.699, diesel: 1.639 },
+            { id: '3', name: 'Shell Express', brand: 'Shell', street: 'Leopoldstraße 88', dist: 3.5, isOpen: true, e5: 1.789, e10: 1.729, diesel: 1.669 },
+            { id: '4', name: 'HEM Freie Tankstelle', brand: 'HEM', street: 'Münchner Str. 45', dist: 4.8, isOpen: false, e5: 1.699, e10: 1.639, diesel: 1.569 }
+        ];
+
+        // Global State
+        let stations = [];
+        let activeFuel = 'e5'; // e5, e10, diesel
+        let sortBy = 'price'; // price, dist
+        let filterFavsOnly = false;
+        let favoriteIds = JSON.parse(localStorage.getItem('sprit_favs') || '[]');
+        let chartInstance = null;
+        let userCoords = { lat: 52.5200, lng: 13.4050 }; // Default Berlin
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadApiKey();
+            initLocationAndFetch();
+        });
+
+        function loadApiKey() {
+            const savedKey = localStorage.getItem('tankkoenig_key') || '';
+            document.getElementById('api-key-input').value = savedKey;
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('api-key-input').value.trim();
+            localStorage.setItem('tankkoenig_key', key);
+            closeSettingsModal();
+            fetchTankkoenigData();
+        }
+
+        // Get User Location & Fetch Data
+        function initLocationAndFetch() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        userCoords.lat = pos.coords.latitude;
+                        userCoords.lng = pos.coords.longitude;
+                        document.getElementById('location-badge').textContent = 'GPS Aktiv';
+                        fetchTankkoenigData();
+                    },
+                    (err) => {
+                        document.getElementById('location-badge').textContent = 'Demo Modus';
+                        fetchTankkoenigData();
+                    },
+                    { timeout: 5000 }
+                );
+            } else {
+                fetchTankkoenigData();
+            }
+        }
+
+        async function fetchTankkoenigData() {
+            const refreshIcon = document.getElementById('refresh-icon');
+            refreshIcon.classList.add('animate-spin');
+            
+            document.getElementById('loading-state').classList.remove('hidden');
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('stations-list').innerHTML = '';
+
+            const apiKey = localStorage.getItem('tankkoenig_key');
+
+            if (!apiKey) {
+                // Fallback to Demo Data
+                setTimeout(() => {
+                    stations = [...DEMO_STATIONS];
+                    updateAveragesAndIsland();
+                    renderStations();
+                    refreshIcon.classList.remove('animate-spin');
+                    document.getElementById('loading-state').classList.add('hidden');
+                }, 600);
+                return;
+            }
+
+            try {
+                const url = `https://creativecommons.tankerkoenig.de/json/list.php?lat=${userCoords.lat}&lng=${userCoords.lng}&rad=5&sort=dist&type=all&apikey=${apiKey}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.ok && data.stations) {
+                    stations = data.stations.map(s => ({
+                        id: s.id,
+                        name: s.brand ? `${s.brand} Tankstelle` : s.name,
+                        brand: s.brand || 'Frei',
+                        street: `${s.street || ''} ${s.houseNumber || ''}`.trim() || s.place,
+                        dist: s.dist,
+                        isOpen: s.isOpen,
+                        e5: s.e5 || 0,
+                        e10: s.e10 || 0,
+                        diesel: s.diesel || 0
+                    }));
+                } else {
+                    stations = [...DEMO_STATIONS];
+                }
+            } catch (e) {
+                stations = [...DEMO_STATIONS];
+            }
+
+            refreshIcon.classList.remove('animate-spin');
+            document.getElementById('loading-state').classList.add('hidden');
+            updateAveragesAndIsland();
+            renderStations();
+        }
+
+        // Update Averages & Dynamic Island Status
+        function updateAveragesAndIsland() {
+            const fuels = ['e5', 'e10', 'diesel'];
+            fuels.forEach(f => {
+                const valid = stations.filter(s => s[f] > 0);
+                const avg = valid.length ? (valid.reduce((a, b) => a + b[f], 0) / valid.length).toFixed(3) : '-,-';
+                document.getElementById(`avg-${f}`).textContent = `Ø ${avg.replace('.', ',')} €`;
+            });
+
+            // Find overall cheapest open station for active fuel
+            const openStations = stations.filter(s => s.isOpen && s[activeFuel] > 0);
+            if (openStations.length) {
+                openStations.sort((a, b) => a[activeFuel] - b[activeFuel]);
+                const best = openStations[0];
+                document.getElementById('island-text').textContent = `${best.brand} (${best.dist}km)`;
+                document.getElementById('island-price').textContent = `${best[activeFuel].toFixed(3).replace('.', ',')} €`;
+            } else {
+                document.getElementById('island-text').textContent = 'Keine Live-Daten';
+                document.getElementById('island-price').textContent = '--,- €';
+            }
+        }
+
+        function setFuelType(fuel) {
+            activeFuel = fuel;
+            document.querySelectorAll('.fuel-btn').forEach(btn => {
+                btn.className = "fuel-btn py-2.5 rounded-xl font-bold text-xs transition-all flex flex-col items-center text-white/60 hover:text-white hover:bg-white/5";
+            });
+            const activeBtn = document.getElementById(`btn-fuel-${fuel}`);
+            activeBtn.className = "fuel-btn py-2.5 rounded-xl font-bold text-xs transition-all flex flex-col items-center bg-blue-600 text-white shadow-glow-blue";
+            
+            updateAveragesAndIsland();
+            renderStations();
+        }
+
+        function toggleSort() {
+            sortBy = sortBy === 'price' ? 'dist' : 'price';
+            document.getElementById('sort-label').textContent = sortBy === 'price' ? 'Preis' : 'Distanz';
+            renderStations();
+        }
+
+        function toggleFavFilter() {
+            filterFavsOnly = !filterFavsOnly;
+            const btn = document.getElementById('fav-filter-btn');
+            const icon = document.getElementById('fav-filter-icon');
+
+            if (filterFavsOnly) {
+                btn.classList.add('text-rose-500', 'bg-rose-500/10');
+                icon.classList.add('fill-rose-500');
+            } else {
+                btn.classList.remove('text-rose-500', 'bg-rose-500/10');
+                icon.classList.remove('fill-rose-500');
+            }
+            renderStations();
+        }
+
+        function toggleFav(e, id) {
+            e.stopPropagation();
+            if (favoriteIds.includes(id)) {
+                favoriteIds = favoriteIds.filter(i => i !== id);
+            } else {
+                favoriteIds.push(id);
+            }
+            localStorage.setItem('sprit_favs', JSON.stringify(favoriteIds));
+            renderStations();
+        }
+
+        function renderStations() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const listEl = document.getElementById('stations-list');
+
+            let filtered = stations.filter(s => {
+                const matchSearch = s.name.toLowerCase().includes(query) || s.street.toLowerCase().includes(query);
+                const matchFav = !filterFavsOnly || favoriteIds.includes(s.id);
+                return matchSearch && matchFav;
+            });
+
+            filtered.sort((a, b) => {
+                if (sortBy === 'price') return (a[activeFuel] || 99) - (b[activeFuel] || 99);
+                return a.dist - b.dist;
+            });
+
+            if (!filtered.length) {
+                document.getElementById('empty-state').classList.remove('hidden');
+                listEl.innerHTML = '';
+                return;
+            }
+            document.getElementById('empty-state').classList.add('hidden');
+
+            const prices = filtered.map(s => s[activeFuel]).filter(p => p > 0);
+            const minP = Math.min(...prices);
+            const maxP = Math.max(...prices);
+
+            listEl.innerHTML = filtered.map(s => {
+                const price = s[activeFuel];
+                const priceStr = price ? price.toFixed(3).replace('.', ',') : '--,-';
+                const mainP = priceStr.substring(0, 4);
+                const superP = priceStr.substring(4);
+                const isFav = favoriteIds.includes(s.id);
+
+                // Relative Color Indicator
+                let badgeColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
+                if (minP !== maxP) {
+                    const ratio = (price - minP) / (maxP - minP);
+                    if (ratio > 0.6) badgeColor = 'text-rose-400 bg-rose-500/10 border-rose-500/30';
+                    else if (ratio > 0.3) badgeColor = 'text-amber-400 bg-amber-500/10 border-amber-500/30';
+                }
+
+                return `
+                <div onclick="openModal('${s.id}')" class="liquid-glass liquid-glass-interactive p-4 rounded-3xl flex items-center justify-between cursor-pointer relative">
+                    <div class="flex items-center space-x-3.5">
+                        <div class="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center font-black text-sm text-white/90">
+                            ${s.brand.charAt(0)}
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h3 class="font-bold text-sm text-white">${s.name}</h3>
+                                ${s.isOpen ? '<span class="w-2 h-2 rounded-full bg-emerald-500"></span>' : '<span class="w-2 h-2 rounded-full bg-rose-500"></span>'}
+                            </div>
+                            <p class="text-[11px] text-white/40 mt-0.5">${s.street} • ${s.dist} km</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3">
+                        <div class="text-right">
+                            <div class="font-mono font-black text-lg text-white flex items-baseline justify-end">
+                                <span>${mainP}</span>
+                                <span class="text-xs font-semibold text-white/60">${superP}</span>
+                                <span class="text-[10px] text-white/40 ml-0.5">€</span>
+                            </div>
+                            <span class="text-[9px] uppercase px-2 py-0.5 rounded-full border ${badgeColor} font-bold inline-block">
+                                ${s.isOpen ? 'Günstig' : 'Zu'}
+                            </span>
+                        </div>
+
+                        <button onclick="toggleFav(event, '${s.id}')" class="p-2 text-white/30 hover:text-rose-500 transition">
+                            <i data-lucide="heart" class="w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : ''}"></i>
+                        </button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function openModal(id) {
+            const station = stations.find(s => s.id === id);
+            if (!station) return;
+
+            document.getElementById('modal-title').textContent = station.name;
+            document.getElementById('modal-subtitle').querySelector('span').textContent = `${station.street} (${station.dist} km entfernt)`;
+            document.getElementById('modal-brand-badge').textContent = station.brand.charAt(0);
+
+            document.getElementById('modal-e5').textContent = station.e5 ? station.e5.toFixed(3).replace('.', ',') + ' €' : '--,- €';
+            document.getElementById('modal-e10').textContent = station.e10 ? station.e10.toFixed(3).replace('.', ',') + ' €';
+            document.getElementById('modal-diesel').textContent = station.diesel ? station.diesel.toFixed(3).replace('.', ',') + ' €';
+
+            const addr = encodeURIComponent(`${station.name}, ${station.street}`);
+            document.getElementById('nav-apple-btn').href = `maps://maps.apple.com/?q=${addr}`;
+            document.getElementById('nav-google-btn').href = `https://www.google.com/maps/search/?api=1&query=${addr}`;
+
+            renderChart(station);
+
+            const modal = document.getElementById('detail-modal');
+            const container = document.getElementById('modal-container');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            container.classList.remove('translate-y-full', 'sm:scale-95');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('detail-modal');
+            const container = document.getElementById('modal-container');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            container.classList.add('translate-y-full', 'sm:scale-95');
+        }
+
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function scrollToBestStation() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function renderChart(station) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            const base = station[activeFuel] || 1.65;
+            const points = [base + 0.03, base + 0.04, base + 0.01, base - 0.02, base - 0.01, base];
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['06:00', '10:00', '14:00', '18:00', '21:00', 'Jetzt'],
+                    datasets: [{
+                        data: points,
+                        borderColor: '#0A84FF',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: 'rgba(10, 132, 255, 0.15)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { display: false }, y: { display: false } }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
